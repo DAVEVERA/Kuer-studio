@@ -1,0 +1,810 @@
+# Build a web application called **KUER Studio**
+
+KUER Studio is an AI-powered branded QR code design platform that allows users to enter a URL and generate visually stunning, fully scannable QR codes in a wide variety of brand styles.
+
+The goal is not simply to generate a QR code, but to create a branded marketing asset suitable for websites, social media, print, packaging, events, podcasts, AR experiences, videos, and campaigns.
+
+The application should be built mobile-first with a premium AI-design-studio aesthetic. Think Apple-inspired clarity, dark premium panels, subtle glassmorphism, soft shadows, excellent spacing, fluid micro-interactions, and professional export workflows.
+
+## Core Technology Stack
+
+### Frontend
+
+* Next.js App Router
+* TypeScript
+* Tailwind CSS
+* shadcn/ui
+* Framer Motion
+* React Hook Form
+* Zod Validation
+
+### Backend
+
+* Next.js API Routes or Server Actions
+* QR Code Generation Engine
+* AI Artwork Generation Abstraction Layer
+* QR Validation Pipeline
+* Export Pipeline
+
+### Database
+
+Use Supabase or a PostgreSQL-ready architecture.
+
+Entities:
+
+* Users
+* Projects
+* QR Codes
+* Generated Variants
+* Brand Kits
+* Scan Analytics
+* Export History
+
+### Authentication
+
+* Supabase Auth or authentication abstraction layer
+* Email Login
+* OAuth-ready architecture
+* User Dashboard
+
+### Storage
+
+Use Supabase Storage or S3-compatible storage.
+
+Store:
+
+* Generated PNG/SVG/PDF exports
+* Uploaded logos
+* Brand assets
+
+---
+
+# Main Application Areas
+
+1. Landing Page
+2. Dashboard
+3. QR Project Creator
+4. AI Style Generator
+5. Scanability Validator
+6. Variant Gallery
+7. QR Editor
+8. Export Center
+9. Analytics Dashboard
+10. Brand Kit Manager
+11. Settings / Billing-ready Account Area
+
+---
+
+# Landing Page
+
+The value proposition must be immediately clear:
+
+> Break free from standard black-and-white QR codes. Generate branded, AI-designed QR codes that stay scannable.
+
+Use strong commercial copy aimed at:
+
+* Agencies
+* Marketers
+* Event organizers
+* Restaurants
+* Podcasters
+* Packaging designers
+* Content creators
+* E-commerce brands
+
+### Landing Page Sections
+
+* Hero with interactive QR preview
+* "From Plain QR to Campaign Asset" comparison
+* Use Case Grid
+* How It Works in 3 Steps
+* Scanability Guarantee Section
+* Style Examples
+* CTA: "Create Your First Branded QR"
+
+---
+
+# Core User Flow
+
+### Step 1
+
+User enters a URL.
+
+### Step 2
+
+User selects a destination type:
+
+* Website
+* Social Media
+* Video
+* AR Experience
+* Podcast
+* Menu
+* Payment
+* Event
+* Product Packaging
+* Campaign
+
+### Step 3
+
+Choose QR Type:
+
+* Static
+* Dynamic
+
+### Step 4
+
+Select a Style Preset or write a custom prompt.
+
+### Step 5
+
+Upload a logo or select a Brand Kit.
+
+### Step 6
+
+Generate a technical QR code using high error correction.
+
+### Step 7
+
+Generate four AI-enhanced visual variants.
+
+### Step 8
+
+Run scanability validation.
+
+### Step 9
+
+Only variants that pass validation may receive a "Validated" status.
+
+### Step 10
+
+Export as:
+
+* PNG
+* SVG
+* PDF
+* Print-ready PDF
+* Social Assets
+
+---
+
+# Critical Technical Requirement
+
+The QR code must always remain functional.
+
+The platform must never generate beautiful artwork without validating scanability.
+
+Every generated variant must pass through a validation pipeline.
+
+## Validation Pipeline
+
+* Render QR Variant
+* Decode using at least one QR decoder
+* Verify decoded URL exactly matches original URL
+* Measure contrast score
+* Verify quiet zone
+* Verify finder patterns
+* Verify minimum resolution
+* Verify export suitability for print or digital
+* Generate scanability score (0–100)
+
+---
+
+# Validation Statuses
+
+* Validated
+* Needs Contrast Improvement
+* Quiet Zone Too Small
+* Finder Pattern Damaged
+* Low Scan Confidence
+* Not Scannable
+
+---
+
+# Auto Repair Suggestions
+
+If validation fails, automatically provide:
+
+* Increase Contrast
+* Restore Finder Patterns
+* Add Quiet Zone
+* Simplify Artwork
+* Reduce AI Overlay
+* Generate Safer Variant
+
+---
+
+# AI Generation Architecture
+
+Create an abstraction layer so AI providers can be swapped later.
+
+Example service interface:
+
+```ts
+generateQrArtwork({
+  baseQrImage,
+  prompt,
+  stylePreset,
+  brandColors,
+  logo,
+  protectionMask,
+  outputSize
+})
+```
+
+---
+
+# QR Protection Mask System
+
+The following areas must always be protected:
+
+* Top-left finder pattern
+* Top-right finder pattern
+* Bottom-left finder pattern
+* Alignment patterns
+* Timing patterns
+* Quiet zone
+* Critical data modules depending on QR density
+
+AI should decorate around and between QR modules but must not destroy scan-critical structures.
+
+Maintain sufficient module contrast at all times.
+
+---
+
+# Style Presets
+
+Create built-in style presets:
+
+* Premium Luxury
+* Organic Nature
+* Tech Circuitboard
+* Podcast Artwork
+* Minimal Editorial
+* Cyberpunk Neon
+* Soft Community
+* Restaurant Menu
+* Event Poster
+* Product Packaging
+* Corporate Clean
+* Dark Futuristic
+
+---
+
+# Example Prompt Templates
+
+## Tech Circuitboard
+
+> Create a premium futuristic circuit-board inspired branded QR code design. Preserve QR scanability, finder patterns, timing patterns and quiet zone. Use subtle metallic traces, microchip textures, blue-grey tones, red accent nodes, high contrast QR modules, sharp details, and a clean professional composition.
+
+## Organic Nature
+
+> Create a soft organic branded QR code design with botanical textures, natural green accents, warm light and premium calm composition. Preserve all QR scan-critical zones, maintain strong contrast, keep finder patterns readable and protect the quiet zone.
+
+## Premium Luxury
+
+> Create a dark premium luxury QR campaign asset with gold linework, deep navy or black backgrounds, elegant borders, editorial layouts, high contrast QR structures, refined typography areas and validated scanability.
+
+---
+
+# QR Editor Features
+
+The editor must support:
+
+* URL editing
+* Foreground color
+* Background color
+* Brand colors
+* Logo placement
+* Logo sizing
+* Quiet zone sizing
+* CTA text
+
+Examples:
+
+* Scan Me
+* Join Us
+* Open Menu
+* Listen Now
+
+Additional controls:
+
+* Frame styles
+
+* Corner styles
+
+* Module styles:
+
+  * Square
+  * Rounded
+  * Dot
+  * Soft Pixel
+
+* Contrast Enhancer
+
+* Regenerate Artwork
+
+* Validate Again
+
+* Download / Export
+
+---
+
+# Export Formats
+
+* PNG 1024px
+* PNG 2048px
+* SVG QR
+* Print-ready PDF
+* Social Square (1:1)
+* Story (9:16)
+* Landscape (16:9)
+* A4 Poster
+* Transparent Background (where technically possible)
+
+---
+
+# Dashboard Structure
+
+### Sidebar
+
+* Dashboard
+* Create QR
+* Projects
+* Brand Kits
+* Analytics
+* Exports
+* Settings
+
+### Dashboard Cards
+
+* Total QR Codes
+* Validated Designs
+* Total Scans
+* Best Performing QR
+* Recent Projects
+
+---
+
+# Projects Page
+
+Display:
+
+* QR Preview
+* Project Name
+* Destination URL
+* Static / Dynamic
+* Scanability Score
+* Last Export Date
+* Status
+
+---
+
+# Analytics Dashboard
+
+Show:
+
+* Scans per Day
+* Device Type
+* Browser
+* Country / City
+* Campaign Source
+* QR Variant Performance
+* Top Performing Projects
+
+Analytics can use mock/demo data in the MVP but the architecture must be production-ready.
+
+---
+
+# Dynamic QR Requirement
+
+Dynamic QR codes must point to:
+
+```txt
+/q/[shortId]
+```
+
+The route should:
+
+1. Log scan events
+2. Redirect to target URL
+
+### Scan Event Data
+
+```txt
+qrCodeId
+timestamp
+userAgent
+referrer
+ipHash
+country
+city
+deviceType
+browser
+os
+```
+
+Never store raw IP addresses.
+
+---
+
+# Privacy
+
+* Privacy-friendly analytics
+* No unnecessary personal data
+* Hash or anonymize IP addresses
+
+---
+
+# Database Schema
+
+### users
+
+```txt
+id
+email
+name
+created_at
+```
+
+### brand_kits
+
+```txt
+id
+user_id
+name
+logo_url
+primary_color
+secondary_color
+accent_color
+font_preference
+created_at
+```
+
+### qr_projects
+
+```txt
+id
+user_id
+brand_kit_id
+name
+target_url
+short_id
+type
+category
+created_at
+updated_at
+```
+
+### qr_variants
+
+```txt
+id
+project_id
+prompt
+style_preset
+image_url
+base_qr_url
+scanability_score
+validation_status
+validation_report_json
+export_urls_json
+created_at
+```
+
+### scan_events
+
+```txt
+id
+project_id
+variant_id
+timestamp
+user_agent
+device_type
+browser
+os
+country
+city
+ip_hash
+```
+
+### export_history
+
+```txt
+id
+variant_id
+format
+size
+file_url
+created_at
+```
+
+---
+
+# Design System
+
+This must feel like a serious B2B AI platform.
+
+### MNRV Color Palette
+
+```txt
+Background: #0B1117
+Panel: #111A22
+Text: #F5F1ED
+Muted: #A7B0B8
+Terracotta Accent: #E07856
+Deep Blue: #2C3E50
+Soft Peach: #E8B89F
+Border: rgba(255,255,255,0.08)
+```
+
+Use:
+
+* Proper empty states
+* Loading states
+* Error handling
+* Responsive layouts
+
+---
+
+# Key Components
+
+```txt
+UrlInputCard
+StylePresetGrid
+BrandKitSelector
+QrPreviewCanvas
+ValidationBadge
+ScanabilityMeter
+VariantGallery
+QrEditorPanel
+ExportPanel
+AnalyticsChart
+ProjectCard
+CreateProjectWizard
+```
+
+---
+
+# Responsive Layout
+
+Desktop:
+
+* Large central preview canvas
+* Editor panel on the right
+
+Mobile:
+
+* Wizard-based flow
+* Step-by-step interface
+* Mobile-first UX mandatory
+
+---
+
+# Framer Motion Usage
+
+Use subtle animations:
+
+* Variant card fade-in
+* Variant card scale-in
+* Scanability meter animations
+* Wizard transitions
+* Export success states
+* Preset hover interactions
+
+---
+
+# Validation UX
+
+For every generated variant display:
+
+* Preview Image
+* Scanability Score
+* URL Match (Yes / No)
+* Contrast Status
+* Quiet Zone Status
+* Finder Pattern Status
+* Recommended Export Size
+
+Scoring:
+
+```txt
+< 80  = Not Production Ready
+80–89 = Usable
+90+   = Excellent
+```
+
+---
+
+# AI Mocking Requirement
+
+If no AI API key exists:
+
+* Generate placeholder artwork
+* Use SVG patterns
+* Use procedural gradients
+* Use generated mock visuals
+
+Keep the architecture fully prepared for future AI providers.
+
+---
+# QR Generator Requirements
+
+Support:
+
+* URL Input
+* Error Correction Level H
+* Custom Colors
+* Logo Overlay
+* Quiet Zone
+* PNG Export
+* SVG Export
+
+---
+
+# Validator Interface
+
+```ts
+validateQrImage(imageBuffer, expectedUrl)
+```
+
+Returns:
+
+```ts
+{
+  isScanable: boolean,
+  decodedUrl: string | null,
+  urlMatches: boolean,
+  score: number,
+  checks: {
+    contrast: "pass" | "warning" | "fail",
+    quietZone: "pass" | "warning" | "fail",
+    finderPatterns: "pass" | "warning" | "fail",
+    resolution: "pass" | "warning" | "fail"
+  },
+  recommendations: string[]
+}
+```
+
+Do not display false validation claims.
+
+Use:
+
+* "Demo Validation"
+* "Validation Simulation"
+
+until a real decoder is active.
+
+Once a real decoder is active:
+
+* Display "Validated"
+
+---
+
+# Seed Data
+
+Include demo projects:
+
+1. Spotify Podcast QR
+2. Restaurant Menu QR
+3. Tech Event QR
+4. Product Packaging QR
+5. AR Campaign QR
+
+---
+
+# Example Style Cards
+
+Generate preview cards inspired by:
+
+* Circuitboard QR
+* Luxury Gold Frame QR
+* Nature/Botanical QR
+* Podcast Artwork QR
+* Minimal Corporate QR
+
+---
+
+# Engineering Standards
+
+* Modular architecture
+* Strong TypeScript typing
+* Reusable services
+* Clear server/client separation
+* Scalable architecture
+* No monolithic components
+
+---
+
+# Acceptance Criteria
+
+Users can:
+
+* Enter a URL
+* Choose a style
+* Create a project
+* View at least four QR variants
+* See scanability scores
+* Open variants in the editor
+* Modify colors, logo, CTA and frame
+* Revalidate
+* Export assets
+
+Additional requirements:
+
+* Dynamic redirect route exists
+* Dashboard works
+* Analytics UI exists
+* Brand Kit Manager works
+* Mobile-first responsive design
+* Near-production-ready implementation
+
+---
+
+# Non-Functional Requirements
+
+### Accessibility
+
+* Keyboard navigation
+* Proper labels
+* Strong contrast
+
+### Performance
+
+* Lazy-loaded previews
+* Optimized assets
+
+### Security
+
+* Server-side URL validation
+* Input sanitization
+* Open redirect protection
+
+### Privacy
+
+* No raw IP storage
+
+### Scalability
+
+* Provider-agnostic AI layer
+
+### Reliability
+
+* QR validation always takes precedence over visual aesthetics
+
+---
+# Product Roadmap
+
+### MVP
+
+* Static QR Generation
+* Style Presets
+* Mock AI Variants
+* Basic Validation
+* PNG Export
+
+### Beta
+
+* Real AI Image Generation
+* Real QR Decoder Validation
+* Dynamic QR Tracking
+* Brand Kits
+* PDF Export
+
+### Production
+
+* Billing
+* Teams
+* Campaign Folders
+* A/B Testing
+* Bulk Generation
+* API Access
+* White-label Agency Mode
+
+---
+
+# Final Goal
+
+Deliver a professional, visually impressive platform that proves AI-powered branded QR generation is both technically feasible and commercially viable.
+
+KUER Studio should feel like a serious product that MNRV can confidently demonstrate to agencies, marketers, brands, and enterprise clients—not a prototype or experiment.
