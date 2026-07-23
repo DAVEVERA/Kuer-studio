@@ -14,7 +14,7 @@ export function QrScanabilityMeter({ score, size = 120, className }: QrScanabili
   const circumference = 2 * Math.PI * radius
   const progress = (score / 100) * circumference
 
-  const color = score >= 90 ? '#10b981' : score >= 80 ? '#f59e0b' : '#ef4444'
+  const color = score >= 80 ? '#000080' : '#000000'
   const label = score >= 90 ? 'Excellent' : score >= 80 ? 'Usable' : 'Not Ready'
 
   return (
@@ -26,7 +26,7 @@ export function QrScanabilityMeter({ score, size = 120, className }: QrScanabili
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke="rgba(255,255,255,0.06)"
+            stroke="#C0C0C0"
             strokeWidth={8}
           />
           <motion.circle

@@ -21,17 +21,17 @@ export async function validateQrImage(
     urlMatches = decodedUrl === expectedUrl
     finderStatus = result.decodedUrl ? 'pass' : 'fail'
   } catch {
-    // If decode fails, use contrast-based estimation
-    urlMatches = contrastStatus === 'pass'
-    decodedUrl = urlMatches ? expectedUrl : null
-    finderStatus = contrastStatus === 'pass' ? 'pass' : 'warning'
+    // Never mark an image as scannable unless a real decoder read the expected URL.
+    urlMatches = false
+    decodedUrl = null
+    finderStatus = 'fail'
   }
 
   const checks: ValidationReport['checks'] = {
     contrast: contrastStatus,
-    quietZone: 'pass',
+    quietZone: decodedUrl ? 'pass' : 'warning',
     finderPatterns: finderStatus,
-    resolution: 'pass',
+    resolution: decodedUrl ? 'pass' : 'warning',
   }
 
   const score = calculateScanabilityScore(checks, urlMatches)
@@ -103,6 +103,24 @@ export async function validateDataUrl(
 ): Promise<ValidationReport> {
   const canvas = await dataUrlToCanvas(dataUrl)
   return validateQrImageOnCanvas(canvas, expectedUrl)
+}
+
+export async function validateGeneratedQrDataUrl(
+  dataUrl: string,
+  expectedUrl: string
+): Promise<ValidationReport> {
+  const report = await validateDataUrl(dataUrl, expectedUrl)
+  if (!report.decodedUrl || !report.urlMatches) {
+    return {
+      ...report,
+      isScannable: false,
+      recommendations: [
+        ...report.recommendations,
+        'Do not publish this AI variant until a decoder reads the exact destination URL.',
+      ],
+    }
+  }
+  return report
 }
 
 async function dataUrlToCanvas(dataUrl: string): Promise<HTMLCanvasElement> {

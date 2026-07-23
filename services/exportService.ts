@@ -1,5 +1,5 @@
 import { exportCanvasAsPng, exportDataUrlAsPng } from '@/lib/export/exportPng'
-import { exportQrAsSvg } from '@/lib/export/exportSvg'
+import { exportArtworkAsSvg } from '@/lib/export/exportSvg'
 import { exportQrAsPdf, exportQrAsPrintReadyPdf } from '@/lib/export/exportPdf'
 import { exportSocialAsset } from '@/lib/export/exportSocialAsset'
 import type { ExportFormat } from '@/types/export'
@@ -36,10 +36,7 @@ export async function exportQr(options: ExportOptions): Promise<void> {
       break
 
     case 'svg':
-      await exportQrAsSvg(options.targetUrl, `${baseName}.svg`, {
-        fgColor: options.fgColor,
-        bgColor: options.bgColor,
-      })
+      await exportArtworkAsSvg(options.qrDataUrl, options.targetUrl, `${baseName}.svg`)
       break
 
     case 'pdf':

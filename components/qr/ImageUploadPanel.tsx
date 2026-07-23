@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Upload, X, Image as ImageIcon, ZoomIn, ZoomOut, RotateCw, Crop } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { Upload, X, Image as ImageIcon, ZoomIn, ZoomOut } from 'lucide-react'
 
 interface ImageUploadPanelProps {
   onImageSelect: (file: File, dataUrl: string) => void
@@ -60,6 +60,8 @@ export function ImageUploadPanel({ onImageSelect, onClear, imageDataUrl, classNa
               style={{ transform: `scale(${zoom / 100})` }}
             />
             <button
+              type="button"
+              aria-label="Remove uploaded image"
               onClick={onClear}
               className="absolute top-3 right-3 p-2 rounded-lg bg-black/60 hover:bg-red-500/60 transition-colors"
             >
@@ -69,6 +71,8 @@ export function ImageUploadPanel({ onImageSelect, onClear, imageDataUrl, classNa
           <div className="p-3 flex items-center justify-between border-t border-white/5">
             <div className="flex items-center gap-2">
               <button
+                type="button"
+                aria-label="Zoom out"
                 onClick={() => setZoom(Math.max(50, zoom - 10))}
                 className="p-1.5 rounded-md glass hover:bg-white/[0.04] transition-colors"
               >
@@ -76,6 +80,8 @@ export function ImageUploadPanel({ onImageSelect, onClear, imageDataUrl, classNa
               </button>
               <span className="text-xs text-muted w-10 text-center">{zoom}%</span>
               <button
+                type="button"
+                aria-label="Zoom in"
                 onClick={() => setZoom(Math.min(200, zoom + 10))}
                 className="p-1.5 rounded-md glass hover:bg-white/[0.04] transition-colors"
               >
@@ -83,6 +89,7 @@ export function ImageUploadPanel({ onImageSelect, onClear, imageDataUrl, classNa
               </button>
             </div>
             <button
+              type="button"
               onClick={() => { onClear(); if (inputRef.current) inputRef.current.value = '' }}
               className="text-xs text-muted hover:text-foreground transition-colors"
             >
@@ -96,12 +103,14 @@ export function ImageUploadPanel({ onImageSelect, onClear, imageDataUrl, classNa
 
   return (
     <div className={className}>
-      <div
+      <button
+        type="button"
+        aria-label="Upload an image"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onClick={() => inputRef.current?.click()}
-        className={`glass rounded-xl border-2 border-dashed transition-all cursor-pointer ${
+        className={`glass w-full rounded-xl border-2 border-dashed transition-all cursor-pointer ${
           isDragging
             ? 'border-accent bg-accent/5 scale-[1.01]'
             : 'border-white/10 hover:border-accent/30 hover:bg-white/[0.02]'
@@ -136,8 +145,10 @@ export function ImageUploadPanel({ onImageSelect, onClear, imageDataUrl, classNa
             <span>Max 10MB</span>
           </div>
         </div>
-      </div>
+      </button>
       <input
+        id="qr-image-upload"
+        aria-label="Choose an image file"
         ref={inputRef}
         type="file"
         accept="image/*"

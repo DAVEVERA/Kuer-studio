@@ -6,6 +6,9 @@ import { buildFullPrompt } from '@/lib/ai/promptTemplates'
 import { createQrDataUrl } from '@/lib/qr/createQr'
 import { detectProvider, generateQrArtwork } from '@/lib/ai/provider'
 import type { AiModelId } from '@/types/qr'
+import { consumeGenerationQuota } from '@/lib/billing/usage'
+import { brandColorsSchema, httpUrlSchema, promptSchema, visionAnalysisSchema } from '@/lib/security/requestValidation'
+import { enforceUserRateLimit, userRateLimitResponse } from '@/lib/auth/userRateLimit'
 
 export const runtime = 'nodejs'
 
@@ -18,22 +21,28 @@ const stylePresetSchema = z.enum([
 const modelSchema = z.enum(['flux-dev', 'qr-monster-v2', 'sd-controlnet']).optional()
 
 const requestSchema = z.object({
-  targetUrl: z.string().min(1),
+  targetUrl: httpUrlSchema,
   stylePreset: stylePresetSchema.default('corporate-clean'),
   model: modelSchema,
-  customPrompt: z.string().optional(),
-  brandColors: z.array(z.string()).optional(),
+  customPrompt: promptSchema.optional(),
+  brandColors: brandColorsSchema.optional(),
   outputSize: z.number().int().min(512).max(1536).default(1024),
   variantIndex: z.number().int().min(0).max(15).default(0),
   controlnetConditioningScale: z.number().min(0.5).max(3).optional(),
   guidanceScale: z.number().min(1).max(20).optional(),
   strength: z.number().min(0.1).max(1).optional(),
   numInferenceSteps: z.number().int().min(10).max(80).optional(),
-  visionAnalysis: z.any().optional(),
+  visionAnalysis: visionAnalysisSchema.optional(),
   useAiPrompt: z.boolean().default(false),
 })
 
 export async function POST(request: Request) {
+  try {
+    await enforceUserRateLimit('ai-browser', 10)
+  } catch (error) {
+    return userRateLimitResponse(error)
+  }
+
   const parsed = requestSchema.safeParse(await request.json().catch(() => null))
 
   if (!parsed.success) {
@@ -62,10 +71,19 @@ export async function POST(request: Request) {
   const model = (requestedModel ?? undefined) as AiModelId | undefined
   const provider = detectProvider(model)
 
-  if (provider === 'mock') {
+  if (provider === 'unavailable') {
     return NextResponse.json(
       { error: 'No AI generation provider is configured' },
       { status: 503 }
+    )
+  }
+
+  try {
+    await consumeGenerationQuota(1)
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Generation quota unavailable.' },
+      { status: error instanceof Error && error.message.includes('quota') ? 429 : 503 }
     )
   }
 
@@ -115,7 +133,6 @@ export async function POST(request: Request) {
       strength: strength ?? (variantIndex % 2 === 0 ? 0.88 : 0.82),
       numInferenceSteps: numInferenceSteps ?? 32,
       seed,
-      allowMockFallback: false,
     })
 
     return NextResponse.json({

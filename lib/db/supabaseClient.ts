@@ -5,5 +5,5 @@ export function getSupabaseClient() {
   if (!hasSupabase()) {
     return null
   }
-  return createBrowserClient(env.supabaseUrl, env.supabaseAnonKey)
+  return createBrowserClient(env.supabaseUrl, env.supabasePublishableKey)
 }

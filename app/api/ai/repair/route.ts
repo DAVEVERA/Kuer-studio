@@ -2,18 +2,27 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { env } from '@/lib/env'
 import { detectProvider, generateQrArtwork } from '@/lib/ai/provider'
+import { consumeGenerationQuota } from '@/lib/billing/usage'
+import { httpUrlSchema, imageDataUrlSchema, promptSchema } from '@/lib/security/requestValidation'
+import { enforceUserRateLimit, userRateLimitResponse } from '@/lib/auth/userRateLimit'
 
 export const runtime = 'nodejs'
 
 const requestSchema = z.object({
-  imageDataUrl: z.string().min(1),
-  repairType: z.string(),
-  targetUrl: z.string().min(1),
-  stylePreset: z.string().optional(),
-  customPrompt: z.string().optional(),
+  imageDataUrl: imageDataUrlSchema,
+  repairType: z.string().trim().min(1).max(64),
+  targetUrl: httpUrlSchema,
+  stylePreset: z.string().trim().max(64).optional(),
+  customPrompt: promptSchema.optional(),
 })
 
 export async function POST(request: Request) {
+  try {
+    await enforceUserRateLimit('ai-browser', 10)
+  } catch (error) {
+    return userRateLimitResponse(error)
+  }
+
   const parsed = requestSchema.safeParse(await request.json().catch(() => null))
 
   if (!parsed.success) {
@@ -26,7 +35,7 @@ export async function POST(request: Request) {
   const { targetUrl, stylePreset, customPrompt } = parsed.data
   const provider = detectProvider()
 
-  if (provider === 'mock') {
+  if (provider === 'unavailable') {
     return NextResponse.json(
       { error: 'No AI provider configured for regeneration repair' },
       { status: 503 }
@@ -34,6 +43,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    await consumeGenerationQuota(1)
     const result = await generateQrArtwork({
       baseQrImage: '',
       targetUrl,
@@ -43,7 +53,6 @@ export async function POST(request: Request) {
       guidanceScale: 9,
       strength: 0.75,
       numInferenceSteps: 40,
-      allowMockFallback: false,
     })
 
     return NextResponse.json({
@@ -54,7 +63,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Repair regeneration failed' },
-      { status: 502 }
+      { status: error instanceof Error && error.message.includes('quota') ? 429 : 502 }
     )
   }
 }

@@ -2,7 +2,6 @@
 
 import { useCallback, useState, useRef } from 'react'
 import { Upload, X, Image as ImageIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
@@ -47,6 +46,8 @@ export function LogoUpload({ logoUrl, logoSize, onLogoChange, onSizeChange }: Lo
               className="h-16 w-16 rounded-lg object-contain bg-white/10 border border-border p-1"
             />
             <button
+              type="button"
+              aria-label="Remove logo"
               onClick={() => onLogoChange(undefined)}
               className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-red-500 flex items-center justify-center hover:bg-red-600 transition-colors"
             >
@@ -69,13 +70,15 @@ export function LogoUpload({ logoUrl, logoSize, onLogoChange, onSizeChange }: Lo
           </div>
         </div>
       ) : (
-        <div
+        <button
+          type="button"
+          aria-label="Upload a logo"
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
           className={cn(
-            'flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 cursor-pointer transition-all duration-200',
+            'flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 cursor-pointer transition-all duration-200',
             isDragging
               ? 'border-accent bg-accent/5'
               : 'border-border hover:border-border-hover hover:bg-white/[0.02]'
@@ -92,10 +95,12 @@ export function LogoUpload({ logoUrl, logoSize, onLogoChange, onSizeChange }: Lo
             <p className="text-sm text-foreground">Drop your logo here</p>
             <p className="text-xs text-muted mt-0.5">PNG, SVG, or JPG</p>
           </div>
-        </div>
+        </button>
       )}
 
       <input
+        id="logo-upload"
+        aria-label="Choose a logo file"
         ref={fileInputRef}
         type="file"
         accept="image/*"

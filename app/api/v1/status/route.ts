@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { validateApiKey } from '@/lib/auth/apiKeyAuth'
+import { ApiRateLimitError, enforceApiKeyRateLimit, validateApiKey } from '@/lib/auth/apiKeyAuth'
 
 export const runtime = 'nodejs'
 
@@ -10,6 +10,18 @@ export async function GET(request: Request) {
       { error: 'Invalid or missing API key' },
       { status: 401 }
     )
+  }
+
+  try {
+    await enforceApiKeyRateLimit(apiKey)
+  } catch (error) {
+    if (error instanceof ApiRateLimitError) {
+      return NextResponse.json({ error: error.message }, {
+        status: 429,
+        headers: { 'Retry-After': String(error.retryAfter) },
+      })
+    }
+    return NextResponse.json({ error: 'API rate limit unavailable.' }, { status: 503 })
   }
 
   return NextResponse.json({

@@ -6,6 +6,9 @@ import { createQrDataUrl } from '@/lib/qr/createQr'
 import { generateQrArtwork } from '@/lib/ai/provider'
 import { getParameterMatrix } from '@/lib/ai/variantOrchestrator'
 import type { AiModelId } from '@/types/qr'
+import { consumeGenerationQuota } from '@/lib/billing/usage'
+import { brandColorsSchema, httpUrlSchema, promptSchema, visionAnalysisSchema } from '@/lib/security/requestValidation'
+import { enforceUserRateLimit, userRateLimitResponse } from '@/lib/auth/userRateLimit'
 
 export const runtime = 'nodejs'
 export const maxDuration = 300
@@ -17,18 +20,24 @@ const stylePresetSchema = z.enum([
 ])
 
 const requestSchema = z.object({
-  targetUrl: z.string().min(1),
+  targetUrl: httpUrlSchema,
   stylePreset: stylePresetSchema.default('corporate-clean'),
   model: z.enum(['flux-dev', 'qr-monster-v2', 'sd-controlnet']).optional(),
-  customPrompt: z.string().optional(),
-  brandColors: z.array(z.string()).optional(),
+  customPrompt: promptSchema.optional(),
+  brandColors: brandColorsSchema.optional(),
   outputSize: z.number().int().min(512).max(1536).default(1024),
   variantCount: z.number().int().min(1).max(8).default(4),
-  visionAnalysis: z.any().optional(),
+  visionAnalysis: visionAnalysisSchema.optional(),
   useAiPrompt: z.boolean().default(false),
 })
 
 export async function POST(request: Request) {
+  try {
+    await enforceUserRateLimit('ai-browser', 10)
+  } catch (error) {
+    return userRateLimitResponse(error)
+  }
+
   const parsed = requestSchema.safeParse(await request.json().catch(() => null))
 
   if (!parsed.success) {
@@ -58,6 +67,15 @@ export async function POST(request: Request) {
   } = parsed.data
 
   const model = (requestedModel ?? undefined) as AiModelId | undefined
+
+  try {
+    await consumeGenerationQuota(variantCount)
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Generation quota unavailable.' }), {
+      status: error instanceof Error && error.message.includes('quota') ? 429 : 503,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
 
   let prompt: string
   if (useAiPrompt && (visionAnalysis || customPrompt)) {
@@ -109,7 +127,6 @@ export async function POST(request: Request) {
             strength: params.strength,
             numInferenceSteps: 32,
             seed,
-            allowMockFallback: false,
           })
 
           completed++

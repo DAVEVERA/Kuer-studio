@@ -3,6 +3,9 @@ import { z } from 'zod'
 import { env, hasPromptProvider } from '@/lib/env'
 import { buildPromptFromTemplate, buildLlmPromptPayload } from '@/lib/ai/promptBuilder'
 import type { BuiltPrompt } from '@/lib/ai/promptBuilder'
+import { consumeGenerationQuota } from '@/lib/billing/usage'
+import { brandColorsSchema, promptSchema, visionAnalysisSchema } from '@/lib/security/requestValidation'
+import { enforceUserRateLimit, userRateLimitResponse } from '@/lib/auth/userRateLimit'
 
 export const runtime = 'nodejs'
 
@@ -14,12 +17,18 @@ const stylePresetSchema = z.enum([
 
 const requestSchema = z.object({
   stylePreset: stylePresetSchema.optional(),
-  customPrompt: z.string().optional(),
-  visionAnalysis: z.any().optional(),
-  brandColors: z.array(z.string()).optional(),
+  customPrompt: promptSchema.optional(),
+  visionAnalysis: visionAnalysisSchema.optional(),
+  brandColors: brandColorsSchema.optional(),
 })
 
 export async function POST(request: Request) {
+  try {
+    await enforceUserRateLimit('ai-browser', 10)
+  } catch (error) {
+    return userRateLimitResponse(error)
+  }
+
   const parsed = requestSchema.safeParse(await request.json().catch(() => null))
 
   if (!parsed.success) {
@@ -32,6 +41,15 @@ export async function POST(request: Request) {
   if (!hasPromptProvider()) {
     const result = buildPromptFromTemplate(parsed.data)
     return NextResponse.json(result)
+  }
+
+  try {
+    await consumeGenerationQuota(1)
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Generation quota unavailable.' },
+      { status: error instanceof Error && error.message.includes('quota') ? 429 : 503 }
+    )
   }
 
   try {

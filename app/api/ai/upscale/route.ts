@@ -2,17 +2,26 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { env, hasAiProvider } from '@/lib/env'
 import { upscaleImage } from '@/lib/ai/providers/replicate-upscale'
+import { consumeGenerationQuota } from '@/lib/billing/usage'
+import { imageDataUrlSchema } from '@/lib/security/requestValidation'
+import { enforceUserRateLimit, userRateLimitResponse } from '@/lib/auth/userRateLimit'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
 
 const requestSchema = z.object({
-  imageUrl: z.string().min(1),
+  imageUrl: imageDataUrlSchema,
   scale: z.enum(['2', '4']).default('4'),
   faceEnhance: z.boolean().default(false),
 })
 
 export async function POST(request: Request) {
+  try {
+    await enforceUserRateLimit('ai-browser', 10)
+  } catch (error) {
+    return userRateLimitResponse(error)
+  }
+
   const parsed = requestSchema.safeParse(await request.json().catch(() => null))
 
   if (!parsed.success) {
@@ -30,6 +39,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    await consumeGenerationQuota(1)
     const result = await upscaleImage(env.aiProviderKey, {
       imageUrl: parsed.data.imageUrl,
       scale: Number(parsed.data.scale) as 2 | 4,
@@ -40,7 +50,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Upscale failed' },
-      { status: 502 }
+      { status: error instanceof Error && error.message.includes('quota') ? 429 : 502 }
     )
   }
 }

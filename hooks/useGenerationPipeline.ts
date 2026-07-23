@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
-import type { StylePresetId, AiModelId } from '@/types/qr'
+import type { StylePresetId, AiModelId, ValidationReport } from '@/types/qr'
 import type { VisionAnalysisResult } from '@/types/vision'
+import { validateGeneratedQrDataUrl } from '@/lib/validation/validateQrImage'
 
 export interface GeneratedVariant {
   index: number
@@ -13,6 +14,8 @@ export interface GeneratedVariant {
   provider: string
   seed?: number
   isAiGenerated: boolean
+  score: number
+  report: ValidationReport
 }
 
 export interface GenerationProgress {
@@ -101,7 +104,8 @@ export function useGenerationPipeline() {
                 setProgress(prev => ({ ...prev, currentIndex: event.index }))
                 break
 
-              case 'variant_complete':
+              case 'variant_complete': {
+                const report = await validateGeneratedQrDataUrl(event.imageDataUrl, request.targetUrl)
                 setVariants(prev => [
                   ...prev,
                   {
@@ -113,6 +117,8 @@ export function useGenerationPipeline() {
                     provider: event.provider,
                     seed: event.seed,
                     isAiGenerated: event.isAiGenerated,
+                    score: report.score,
+                    report,
                   },
                 ])
                 setProgress(prev => ({
@@ -121,6 +127,7 @@ export function useGenerationPipeline() {
                   total: event.total,
                 }))
                 break
+              }
 
               case 'variant_error':
                 setProgress(prev => ({

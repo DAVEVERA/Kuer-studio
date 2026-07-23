@@ -45,11 +45,13 @@ import { generateQr } from '@/services/qrGenerator'
 import { getQrMatrix } from '@/lib/qr/createQr'
 import { renderStyledQr } from '@/lib/qr/qrStyles'
 import { validateDataUrl, validateQrImageOnCanvas } from '@/lib/validation/validateQrImage'
-import { mockBrandKits } from '@/lib/db/mockData'
+import { createProject, createVariant, fetchBrandKits } from '@/lib/db/queries'
+import { createClient } from '@/lib/supabase/client'
 import { useGenerationPipeline, type GeneratedVariant as StreamedVariant } from '@/hooks/useGenerationPipeline'
 import { QrModeSelector } from '@/components/qr/QrModeSelector'
 import type { QrModeId } from '@/types/qrModes'
 import type { QrType, DestinationType, StylePresetId, AiModelId, ValidationReport } from '@/types/qr'
+import type { BrandKit } from '@/types/brand'
 
 const AI_MODELS: { id: AiModelId; name: string; desc: string; icon: React.ElementType }[] = [
   { id: 'qr-monster-v2', name: 'QR Monster V2', desc: 'Best QR art quality — trained to preserve scanability', icon: Sparkles },
@@ -108,6 +110,7 @@ interface GeneratedVariant {
 
 export default function CreatePage() {
   const [step, setStep] = useState(0)
+  const [projectName, setProjectName] = useState('')
   const [url, setUrl] = useState('')
   const [urlError, setUrlError] = useState('')
   const [destination, setDestination] = useState<DestinationType | ''>('')
@@ -136,9 +139,18 @@ export default function CreatePage() {
   const [variants, setVariants] = useState<GeneratedVariant[]>([])
   const [selectedVariant, setSelectedVariant] = useState(0)
   const [variantCount, setVariantCount] = useState(4)
+  const [brandKits, setBrandKits] = useState<BrandKit[]>([])
+  const [selectedBrandKitId, setSelectedBrandKitId] = useState<string>()
+  const [isSaving, setIsSaving] = useState(false)
+  const [savedProjectId, setSavedProjectId] = useState('')
+  const [isRepairing, setIsRepairing] = useState(false)
 
   // Streaming generation hook
   const pipeline = useGenerationPipeline()
+
+  useEffect(() => {
+    fetchBrandKits().then(setBrandKits).catch(() => setBrandKits([]))
+  }, [])
 
   const handleImageSelect = useCallback(async (file: File, dataUrl: string) => {
     setUploadedFile(file)
@@ -161,7 +173,7 @@ export default function CreatePage() {
 
   const canProceed = useCallback(() => {
     switch (step) {
-      case 0: return url.length > 0 && isValidUrl(url)
+      case 0: return projectName.trim().length > 0 && url.length > 0 && isValidUrl(url)
       case 1: return true
       case 2: return true // image upload is optional
       case 3: return (selectedMode !== null || selectedStyle !== '' || customPrompt.length > 0) || uploadedImage
@@ -263,7 +275,7 @@ export default function CreatePage() {
             report = await validateQrImageOnCanvas(result.canvas, getEncodableUrl(url))
             score = report.score
           } catch {
-            score = 75 + Math.floor(Math.random() * 20)
+            score = 0
           }
 
           generatedVariants.push({
@@ -333,7 +345,7 @@ export default function CreatePage() {
             report = await validateQrImageOnCanvas(canvas, getEncodableUrl(url))
             score = report.score
           } catch {
-            score = 90 + Math.floor(Math.random() * 10)
+            score = 0
           }
 
           generatedVariants.push({
@@ -364,6 +376,116 @@ export default function CreatePage() {
     setVariants(generatedVariants)
     setIsGenerating(false)
     setStep(5)
+  }
+
+  const handleSaveProject = async () => {
+    if (isSaving || savedProjectId) return
+    setIsSaving(true)
+    setGenerationNotice('')
+
+    try {
+      const supabase = createClient()
+      const { data: authData, error: authError } = await supabase.auth.getUser()
+      if (authError || !authData.user) throw new Error('Your session has expired. Please log in again.')
+
+      const project = await createProject({
+        user_id: authData.user.id,
+        brand_kit_id: selectedBrandKitId,
+        name: projectName.trim(),
+        target_url: normalizeUrl(url),
+        type: qrType,
+        category: destination || 'website',
+      })
+
+      const selected = pipeline.variants.length > 0
+        ? pipeline.variants[selectedVariant]
+        : variants[selectedVariant]
+
+      if (selected) {
+        const dataUrl = 'imageDataUrl' in selected ? selected.imageDataUrl : selected.dataUrl
+        if (!dataUrl) throw new Error('The selected variant has no exportable image.')
+        const blob = await fetch(dataUrl).then((response) => response.blob())
+        const assetForm = new FormData()
+        assetForm.set('file', new File([blob], 'qr-variant.png', { type: 'image/png' }))
+        assetForm.set('projectId', project.id)
+        const assetResponse = await fetch('/api/assets/qr', { method: 'POST', body: assetForm })
+        const publicAsset = await assetResponse.json()
+        if (!assetResponse.ok || !publicAsset.publicUrl) throw new Error(publicAsset.error || 'Could not store QR asset.')
+
+        const report = selected.report ?? {
+          isScannable: false,
+          decodedUrl: null,
+          urlMatches: false,
+          score: 0,
+          checks: { contrast: 'warning' as const, quietZone: 'warning' as const, finderPatterns: 'warning' as const, resolution: 'warning' as const },
+          recommendations: ['Run scan validation before production distribution.'],
+        }
+
+        await createVariant({
+          project_id: project.id,
+          prompt: customPrompt,
+          style_preset: selectedStyle || 'corporate-clean',
+          model_id: selectedModel,
+          image_url: publicAsset.publicUrl,
+          base_qr_url: qrType === 'dynamic' ? `/q/${project.short_id}` : normalizeUrl(url),
+          scanability_score: report.score,
+          validation_status: report.isScannable ? 'validated' : 'pending',
+          validation_report: report,
+          export_urls: {},
+        })
+      }
+
+      setSavedProjectId(project.id)
+      setGenerationNotice('Project and selected variant saved to your account.')
+    } catch (error) {
+      setGenerationNotice(error instanceof Error ? error.message : 'Could not save this project.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleRepair = async (action: RepairAction) => {
+    if (action === 'regenerate-variant') {
+      pipeline.reset()
+      setStep(4)
+      return
+    }
+
+    setIsRepairing(true)
+    setGenerationNotice('')
+    try {
+      const targetUrl = getEncodableUrl(url)
+      const generated = await generateQr(targetUrl, {
+        targetUrl,
+        fgColor: '#000000',
+        bgColor: '#FFFFFF',
+        brandColors: [],
+        logoSize: action === 'reduce-overlay' ? 10 : 0,
+        quietZone: action === 'add-quiet-zone' ? 8 : 4,
+        ctaText: '',
+        frameStyle: 'none',
+        cornerStyle: action === 'restore-finder-patterns' || action === 'rebuild-modules' ? 'square' : 'rounded',
+        moduleStyle: action === 'simplify-artwork' || action === 'rebuild-modules' ? 'square' : 'rounded',
+        errorCorrection: 'H',
+      })
+      const report = await validateDataUrl(generated.dataUrl, targetUrl)
+      pipeline.reset()
+      setVariants([{
+        id: `repair-${Date.now()}`,
+        name: 'Repaired Variant',
+        dataUrl: generated.dataUrl,
+        canvas: null,
+        score: report.score,
+        report,
+        mode: 'standard',
+      }])
+      setSelectedVariant(0)
+      setGenerationNotice(`Repair applied and revalidated at ${report.score}/100.`)
+    } catch (error) {
+      setGenerationNotice(error instanceof Error ? error.message : 'Could not repair this variant.')
+    } finally {
+      setIsRepairing(false)
+    }
   }
 
   const getScoreColor = (score: number) => {
@@ -432,6 +554,17 @@ export default function CreatePage() {
                   <p className="text-muted">Paste the URL you want to encode in your branded QR code</p>
                 </div>
                 <div className="max-w-xl mx-auto">
+                  <label className="block text-sm font-medium mb-2" htmlFor="project-name">Project name</label>
+                  <input
+                    id="project-name"
+                    type="text"
+                    value={projectName}
+                    onChange={(event) => setProjectName(event.target.value)}
+                    placeholder="Campaign name"
+                    maxLength={160}
+                    className="w-full px-4 py-3 mb-5 bg-background border border-white/10 text-foreground"
+                    autoFocus
+                  />
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted/40 text-lg select-none pointer-events-none">
                       {!url && 'https://'}
@@ -442,7 +575,6 @@ export default function CreatePage() {
                       onChange={(e) => { setUrl(e.target.value); setUrlError('') }}
                       placeholder="example.com"
                       className="w-full px-4 py-3.5 rounded-xl bg-background border border-white/10 text-foreground placeholder:text-muted/50 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/20 text-lg"
-                      autoFocus
                     />
                   </div>
                   {urlError && <p className="text-red-400 text-sm mt-2">{urlError}</p>}
@@ -588,9 +720,9 @@ export default function CreatePage() {
                 <div className="mb-6">
                   <h3 className="text-sm font-medium mb-3">Brand Kit <span className="text-muted font-normal">(optional)</span></h3>
                   <BrandKitSelector
-                    brandKits={mockBrandKits}
-                    selectedId={undefined}
-                    onSelect={() => {}}
+                    brandKits={brandKits}
+                    selectedId={selectedBrandKitId}
+                    onSelect={setSelectedBrandKitId}
                   />
                 </div>
 
@@ -851,8 +983,8 @@ export default function CreatePage() {
                     name: `${v.model ? AI_MODELS.find(m => m.id === v.model)?.name ?? 'AI' : 'AI'} ${String.fromCharCode(65 + v.index)}`,
                     dataUrl: v.imageDataUrl,
                     canvas: null as HTMLCanvasElement | null,
-                    score: 0,
-                    report: null as ValidationReport | null,
+                    score: v.score,
+                    report: v.report,
                     mode: 'ai-controlnet' as const,
                   }))
                 : variants
@@ -980,14 +1112,22 @@ export default function CreatePage() {
                 {displayVariants[selectedVariant]?.report && displayVariants[selectedVariant].score < 90 && (
                   <AutoRepairPanel
                     report={displayVariants[selectedVariant].report!}
-                    onRepair={(action) => {
-                      console.log('Repair action:', action)
-                    }}
+                    onRepair={handleRepair}
+                    isRepairing={isRepairing}
                   />
                 )}
 
                 {/* Export actions */}
                 <div className="flex flex-col sm:flex-row justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSaveProject}
+                    disabled={isSaving || Boolean(savedProjectId)}
+                    className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg gradient-accent text-white text-sm font-medium disabled:opacity-50"
+                  >
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    {savedProjectId ? 'Saved to Projects' : isSaving ? 'Saving...' : 'Save Project'}
+                  </button>
                   {displayVariants[selectedVariant]?.dataUrl && (
                     <a
                       href={displayVariants[selectedVariant].dataUrl}
@@ -1009,7 +1149,7 @@ export default function CreatePage() {
                     Generate More
                   </button>
                   <Link
-                    href="/projects"
+                    href={savedProjectId ? `/projects/${savedProjectId}` : '/projects'}
                     className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg glass text-foreground text-sm font-medium hover:bg-white/[0.04] transition-colors"
                   >
                     View All Projects

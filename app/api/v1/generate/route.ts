@@ -1,22 +1,24 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { env } from '@/lib/env'
-import { validateApiKey } from '@/lib/auth/apiKeyAuth'
+import { ApiRateLimitError, enforceApiKeyRateLimit, validateApiKey } from '@/lib/auth/apiKeyAuth'
 import { buildPromptFromTemplate } from '@/lib/ai/promptBuilder'
 import { buildFullPrompt } from '@/lib/ai/promptTemplates'
 import { createQrDataUrl } from '@/lib/qr/createQr'
 import { generateQrArtwork } from '@/lib/ai/provider'
 import type { AiModelId, StylePresetId } from '@/types/qr'
+import { consumeGenerationQuota } from '@/lib/billing/usage'
+import { brandColorsSchema, httpUrlSchema, promptSchema } from '@/lib/security/requestValidation'
 
 export const runtime = 'nodejs'
 export const maxDuration = 120
 
 const requestSchema = z.object({
-  url: z.string().min(1),
+  url: httpUrlSchema,
   style: z.string().default('corporate-clean'),
   model: z.enum(['flux-dev', 'qr-monster-v2', 'sd-controlnet']).optional(),
-  prompt: z.string().optional(),
-  brand_colors: z.array(z.string()).optional(),
+  prompt: promptSchema.optional(),
+  brand_colors: brandColorsSchema.optional(),
   size: z.number().int().min(512).max(1536).default(1024),
   variants: z.number().int().min(1).max(8).default(1),
 })
@@ -37,6 +39,18 @@ export async function POST(request: Request) {
     )
   }
 
+  try {
+    await enforceApiKeyRateLimit(apiKey)
+  } catch (error) {
+    if (error instanceof ApiRateLimitError) {
+      return NextResponse.json({ error: error.message }, {
+        status: 429,
+        headers: { 'Retry-After': String(error.retryAfter) },
+      })
+    }
+    return NextResponse.json({ error: 'API rate limit unavailable.' }, { status: 503 })
+  }
+
   const parsed = requestSchema.safeParse(await request.json().catch(() => null))
   if (!parsed.success) {
     return NextResponse.json(
@@ -52,6 +66,15 @@ export async function POST(request: Request) {
   const { url: targetUrl, style, model: requestedModel, prompt: customPrompt, brand_colors, size, variants } = parsed.data
   const stylePreset = style as StylePresetId
   const model = (requestedModel ?? undefined) as AiModelId | undefined
+
+  try {
+    await consumeGenerationQuota(variants, apiKey.userId)
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Generation quota unavailable.' },
+      { status: error instanceof Error && error.message.includes('quota') ? 429 : 503 }
+    )
+  }
 
   const fullPrompt = customPrompt
     ? buildPromptFromTemplate({ stylePreset, customPrompt, brandColors: brand_colors }).prompt
@@ -78,7 +101,6 @@ export async function POST(request: Request) {
         brandColors: brand_colors,
         outputSize: size,
         seed: baseSeed + i * 1000,
-        allowMockFallback: false,
       })
 
       results.push({

@@ -51,9 +51,9 @@ export const CTA_PRESETS = [
 export const EXPORT_OPTIONS: ExportOption[] = [
   { format: 'png-1024', label: 'PNG 1024px', description: 'Standard digital use', dimensions: '1024×1024', icon: 'Image' },
   { format: 'png-2048', label: 'PNG 2048px', description: 'High resolution', dimensions: '2048×2048', icon: 'Image' },
-  { format: 'svg', label: 'SVG', description: 'Scalable vector', icon: 'FileCode' },
+  { format: 'svg', label: 'Hybrid SVG', description: 'Artwork with crisp QR anchors', icon: 'FileCode' },
   { format: 'pdf', label: 'PDF', description: 'Standard document', icon: 'FileText' },
-  { format: 'pdf-print', label: 'Print-ready PDF', description: 'CMYK with bleed', icon: 'Printer' },
+  { format: 'pdf-print', label: 'Print PDF', description: 'High-resolution A4 document', icon: 'Printer' },
   { format: 'social-square', label: 'Social Square', description: '1:1 aspect ratio', dimensions: '1080×1080', icon: 'Square' },
   { format: 'social-story', label: 'Story', description: '9:16 aspect ratio', dimensions: '1080×1920', icon: 'Smartphone' },
   { format: 'social-landscape', label: 'Landscape', description: '16:9 aspect ratio', dimensions: '1920×1080', icon: 'Monitor' },

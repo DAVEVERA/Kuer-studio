@@ -53,9 +53,9 @@ function ScoreGauge({ score, label, icon: Icon, color }: {
 
 export function QrScorecardPanel({ scorecard, className = '' }: QrScorecardPanelProps) {
   const getColor = (score: number) => {
-    if (score >= 90) return '#4ade80'
-    if (score >= 70) return '#facc15'
-    return '#f87171'
+    if (score >= 90) return '#000080'
+    if (score >= 70) return '#000000'
+    return '#7F7F7F'
   }
 
   return (

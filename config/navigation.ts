@@ -12,4 +12,5 @@ export const sidebarNav: NavItem[] = [
   { label: 'Analytics', href: '/analytics', icon: 'BarChart3' },
   { label: 'Exports', href: '/exports', icon: 'Download' },
   { label: 'Settings', href: '/settings', icon: 'Settings' },
+  { label: 'My Account', href: '/account', icon: 'UserRound' },
 ]

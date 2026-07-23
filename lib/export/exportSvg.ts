@@ -1,4 +1,23 @@
 import { createQrSvgString } from '@/lib/qr/createQr'
+import { downloadSvgHybrid, exportSvgHybrid } from './exportSvgHybrid'
+
+export function createArtworkSvg(
+  rasterDataUrl: string,
+  targetUrl: string,
+  outputSize = 1024
+): Promise<string> {
+  return exportSvgHybrid(rasterDataUrl, targetUrl, outputSize)
+}
+
+export async function exportArtworkAsSvg(
+  rasterDataUrl: string,
+  targetUrl: string,
+  filename: string,
+  outputSize = 1024
+): Promise<void> {
+  const svg = await createArtworkSvg(rasterDataUrl, targetUrl, outputSize)
+  downloadSvgHybrid(svg, filename)
+}
 
 export async function exportQrAsSvg(
   url: string,

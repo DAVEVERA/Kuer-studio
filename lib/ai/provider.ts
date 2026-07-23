@@ -1,5 +1,4 @@
 import { hasAiProvider, env, getFluxModelId, getQrMonsterModelId } from '@/lib/env'
-import { generateMockArtwork } from './mockArtwork'
 import { generateQrArt, type ReplicateQrArtRequest } from './providers/replicate'
 import { generateFluxQrArt, generateQrMonsterArt } from './providers/replicate-flux'
 import { fetchImageAsDataUrl } from './providers/replicate-common'
@@ -20,7 +19,6 @@ export interface ArtworkGenerationParams {
   strength?: number
   numInferenceSteps?: number
   seed?: number
-  allowMockFallback?: boolean
 }
 
 export interface ArtworkResult {
@@ -33,10 +31,10 @@ export interface ArtworkResult {
   seed?: number
 }
 
-export type AiProvider = 'replicate-flux' | 'replicate-qr-monster' | 'replicate-sd' | 'mock'
+export type AiProvider = 'replicate-flux' | 'replicate-qr-monster' | 'replicate-sd' | 'unavailable'
 
 export function detectProvider(model?: AiModelId): AiProvider {
-  if (!hasAiProvider()) return 'mock'
+  if (!hasAiProvider()) return 'unavailable'
 
   if (model === 'flux-dev' && getFluxModelId()) return 'replicate-flux'
   if (model === 'qr-monster-v2' && getQrMonsterModelId()) return 'replicate-qr-monster'
@@ -46,7 +44,7 @@ export function detectProvider(model?: AiModelId): AiProvider {
   if (getQrMonsterModelId()) return 'replicate-qr-monster'
   if (env.aiProviderKey && env.aiProviderUrl?.includes('replicate')) return 'replicate-sd'
 
-  return 'mock'
+  return 'unavailable'
 }
 
 export function getAvailableModels(): AiModelId[] {
@@ -74,11 +72,7 @@ export async function generateQrArtwork(
     return generateWithReplicateSd(params)
   }
 
-  if (params.allowMockFallback === false) {
-    throw new Error('No configured AI generation provider is available')
-  }
-
-  return generateMockArtwork(params)
+  throw new Error('No configured AI generation provider is available')
 }
 
 async function generateWithFlux(params: ArtworkGenerationParams): Promise<ArtworkResult> {
@@ -104,9 +98,7 @@ async function generateWithFlux(params: ArtworkGenerationParams): Promise<Artwor
       seed: result.seed,
     }
   } catch (error) {
-    if (params.allowMockFallback === false) throw error
-    console.error('FLUX generation failed, falling back to mock:', error)
-    return generateMockArtwork(params)
+    throw error
   }
 }
 
@@ -133,9 +125,7 @@ async function generateWithQrMonster(params: ArtworkGenerationParams): Promise<A
       seed: result.seed,
     }
   } catch (error) {
-    if (params.allowMockFallback === false) throw error
-    console.error('QR Monster generation failed, falling back to mock:', error)
-    return generateMockArtwork(params)
+    throw error
   }
 }
 
@@ -164,9 +154,7 @@ async function generateWithReplicateSd(params: ArtworkGenerationParams): Promise
       seed: result.seed,
     }
   } catch (error) {
-    if (params.allowMockFallback === false) throw error
-    console.error('Replicate SD generation failed, falling back to mock:', error)
-    return generateMockArtwork(params)
+    throw error
   }
 }
 
